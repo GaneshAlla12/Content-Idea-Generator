@@ -6,33 +6,35 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return res.status(500).json({ error: { message: 'GEMINI_API_KEY not set in environment variables' } });
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) return res.status(500).json({ error: { message: 'GROQ_API_KEY not set in environment variables' } });
 
   try {
     const userMessage = req.body?.messages?.[0]?.content || '';
 
-    const geminiRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: userMessage }] }],
-          generationConfig: { temperature: 0.9, maxOutputTokens: 2500 }
-        })
-      }
-    );
+    const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [{ role: 'user', content: userMessage }],
+        temperature: 0.9,
+        max_tokens: 2500
+      })
+    });
 
-    const geminiData = await geminiRes.json();
+    const groqData = await groqRes.json();
 
-    if (!geminiRes.ok) {
-      return res.status(geminiRes.status).json({
-        error: { message: geminiData?.error?.message || 'Gemini API error' }
+    if (!groqRes.ok) {
+      return res.status(groqRes.status).json({
+        error: { message: groqData?.error?.message || 'Groq API error' }
       });
     }
 
-    const text = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const text = groqData?.choices?.[0]?.message?.content || '';
     return res.status(200).json({
       content: [{ type: 'text', text }]
     });
